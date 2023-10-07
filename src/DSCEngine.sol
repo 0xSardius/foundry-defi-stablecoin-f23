@@ -52,8 +52,15 @@ contract DSCEngine is ReentrancyGuard {
     // State Variables
     /////////////////////
     mapping(address token => address priceFeed) private s_priceFeeds; //tokenToPriceFeed
+    mapping(address user => mapping(address token => uint256 amount)) private s_collateralDeposited;
 
     DecentralizedStableCoin private immutable i_dsc;
+
+    /////////////////////
+    // Events
+    /////////////////////
+    event CollateralDeposited(address indexed user, address indexed token, uint256 indexed amount);
+
 
     /////////////////////
     // Modifiers
@@ -109,7 +116,8 @@ contract DSCEngine is ReentrancyGuard {
         isAllowedToken(tokenCollateralAddress)
         nonReentrant
     {
-        
+        s_collateralDeposited[msg.sender][tokenCollateralAddress] += amountCollateral;
+        emit CollateralDeposited(msg.sender, tokenCollateralAddress, amountCollateral);
     }
 
     function redeemCollateralForDsc() external {
