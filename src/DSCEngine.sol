@@ -55,6 +55,7 @@ contract DSCEngine is ReentrancyGuard {
     /////////////////////
     mapping(address token => address priceFeed) private s_priceFeeds; //tokenToPriceFeed
     mapping(address user => mapping(address token => uint256 amount)) private s_collateralDeposited;
+    mapping(address user => uint256 amountDscMinted) private s_DSCMinted;
 
     DecentralizedStableCoin private immutable i_dsc;
 
@@ -135,8 +136,15 @@ contract DSCEngine is ReentrancyGuard {
 
     }
 
-    function mintDsc() external {
-
+    /**
+    * @notice follows Check Effect Interaction pattern (CEI)
+    * @param amountDscToMint The amount of DSC to mint
+    * @notice they must have more collateral value than the minimum threshold
+    
+     */
+    function mintDsc(uint256 amountDscToMint) external moreThanZero(amountDscToMint) nonReentrant {
+        s_DSCMinted[msg.sender] += amountDscToMint;
+        revertIfHealthFactorIsBroken();
     }
 
     function burnDsc() external {
@@ -148,6 +156,24 @@ contract DSCEngine is ReentrancyGuard {
     }
 
     function getHealthFactor() external view {
+
+    }
+
+    //////////////////////////////////////
+    // Private and Internal Functions   //
+    //////////////////////////////////////
+
+    /*
+    * Returns how close to liquidation the user is
+    *
+    */
+    function _healthFactor(address user) private view returns(uint256) {
+
+    }
+
+
+
+    function _revertIfHealthFactorIsBroken() internal view {
 
     }
 }
