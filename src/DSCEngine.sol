@@ -1,6 +1,30 @@
 // SPDX-License-Identifier: MIT
 
+// Layout of Contract:
+// version
+// imports
+// interfaces, libraries, and contracts
+// errors
+// Type declarations
+// State variables
+// Events
+// Modifiers
+// Functions
+
+// Layout of Functions:
+// constructor
+// receive function (if exists)
+// fallback function (if exists)
+// external
+// public
+// internal
+// private
+// view and pure
+
 pragma solidity ^0.8.18;
+
+import {DecentralizedStableCoin} from "./DecentralizedStableCoin.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
 * @title DSCEngine
@@ -16,13 +40,20 @@ pragma solidity ^0.8.18;
 * @notice This contract is very loosely base don the MakerDAO DSS (DAI) system.
  */
 
-contract DSCEngine {
+contract DSCEngine is ReentrancyGuard {
     /////////////////////
     // Errors
     /////////////////////
     error DSCEngine__MustBeMoreThanZero();
+    error DSCEngine__TokenAddressesAndPriceFeedAddressesMustBeSameLength();
+    error DSCEngine__NotAllowedToken();
 
+    /////////////////////
+    // State Variables
+    /////////////////////
+    mapping(address token => address priceFeed) private s_priceFeeds; //tokenToPriceFeed
 
+    DecentralizedStableCoin private immutable i_dsc;
 
     /////////////////////
     // Modifiers
@@ -34,9 +65,33 @@ contract DSCEngine {
         _;
     }
 
+    modifier isAllowedToken(address token) {
+        if (s_priceFeeds[token] == address(0)) {
+            revert DSCEngine__NotAllowedToken();
+        }
+        _;
+    }
 
+    /////////////////////
+    // Functions
+    /////////////////////
+    constructor(address[] memory tokenAddresses, 
+                address[] memory priceFeedAddresses, 
+                address dscAddress
+    ) {
+        // USD Price Feeds
+        if (tokenAddresses.length != priceFeedAddresses.length) {
+            revert DSCEngine__TokenAddressesAndPriceFeedAddressesMustBeSameLength();
+        }
+        for (uint256 i = 0; i < tokenAddresses.length; i++) {
+            s_priceFeeds[tokenAddresses[i]] = priceFeedAddresses[i];
+        }
+        i_dsc = DecentralizedStableCoin(dscAddress);
+    }
 
-
+    /////////////////////
+    // External Functions
+    /////////////////////
 
     function depositCollateralAndMintDSC() external {
 
@@ -49,9 +104,12 @@ contract DSCEngine {
     function depositCollateral(
         address tokenCollateralAddress, 
         uint256 amountCollateral
-        ) external moreThanZero(amountCollateral) 
-        {
-
+    ) 
+        external moreThanZero(amountCollateral)
+        isAllowedToken(tokenCollateralAddress)
+        nonReentrant
+    {
+        
     }
 
     function redeemCollateralForDsc() external {
