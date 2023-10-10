@@ -197,13 +197,13 @@ contract DSCEngine is ReentrancyGuard {
         // total DSC minted
         // total collateral value
         (uint256 totalDscMinted, uint256 collateralValueInUsd) = _getAccountInformation(user);
-        uint256 collateralAdjustedForThreshold = (collateralValueInUsd * LIQUIDIDATION_THRESHOLD) / LIQUIDATION_PRECISION;
+        uint256 collateralAdjustedForThreshold = (collateralValueInUsd * LIQUIDATION_THRESHOLD) / LIQUIDATION_PRECISION;
         return (collateralAdjustedForThreshold * PRECISION) / totalDscMinted;
     }
 
     // 1. Check health factor (do they have enough collateral?)
     // 2. Revert if they don't
-    function _revertIfHealthFactorIsBroken() internal view {
+    function _revertIfHealthFactorIsBroken(address user) internal view {
         uint256 userHealthFactor = _healthFactor(user);
         if (userHealthFactor < MIN_HEALTH_FACTOR) {
             revert DSCEngine__BreaksHealthFactor(userHealthFactor);
@@ -213,7 +213,7 @@ contract DSCEngine is ReentrancyGuard {
     //////////////////////////////////////////
     // Public and External View Functions   //
     //////////////////////////////////////////
-    function getAccountCollateralValue(address user) public view returns(uint256) {
+    function getAccountCollateralValue(address user) public view returns(uint256 totalCollateralValueInUsd) {
         // loop through each collateral token, get the amount they have deposited, and map it to
         // price, to get the USD value
         for (uint256 i = 0; i < s_collateralTokens.length; i++) {
