@@ -52,6 +52,7 @@ contract DSCEngine is ReentrancyGuard {
     error DSCEngine__TransferFailed();
     error DSCEngine__BreaksHealthFactor(uint256 healthFactor);
     error DSCEngine__MintFailed();
+    error DSCEngine__HealthFactorOk();
 
     /////////////////////
     // State Variables
@@ -60,7 +61,7 @@ contract DSCEngine is ReentrancyGuard {
     uint256 private constant PRECISION = 1e18;
     uint256 private constant LIQUIDATION_THRESHOLD = 50; // 200% overcollateralized
     uint256 private constant LIQUIDATION_PRECISION = 100;
-    uint256 private constant MIN_HEALTH_FACTOR = 1;
+    uint256 private constant MIN_HEALTH_FACTOR = 1e18;
 
 
     mapping(address token => address priceFeed) private s_priceFeeds; //tokenToPriceFeed
@@ -154,7 +155,15 @@ contract DSCEngine is ReentrancyGuard {
         }
     }
 
-    function redeemCollateralForDsc() external {
+    /**
+    * @param tokenCollateralAddress The address of the collateral token to redeem
+    * @param amountCollateral The amount of collateral to redeem
+    * @param amountDscToBurn The amount of DSC to burn
+    * @notice this function will redeem your collateral and burn DSC in one transaction
+    */
+    function redeemCollateralForDsc(address tokenCollateralAddress, uint256 amountCollateral, uint256 amountDscToBurn) external {
+        burnDsc(amountDscToBurn);
+        redeemCollateral(tokenCollateralAddress, amountCollateral);
 
     }
 
@@ -191,13 +200,38 @@ contract DSCEngine is ReentrancyGuard {
         }
     }
 
-    function burnDsc() external {
-
+    function burnDsc(uint256 amount) public moreThanZero(amount) {
+        s_DSCMinted[msg.sender] -= amount;
+        bool success = i_dsc.transferFrom(msg.sender, address(this), amount);
+        if (!success) {
+            revert DSCEngine__TransferFailed();
+        }
+        i_dsc.burn(amount);
+        _revertIfHealthFactorIsBroken((msg.sender)); // I don't think this would ever hit...
     }
 
-    function liquidate() external {
-
+    // If someone if almost undercollateralized, we will pay you to liquidate them!
+    /**
+    * @param collateral The erc20 collateral address of the collateral token to liquidate
+    * @param user The address of the user to liquidate. The user's _healthFactor should be below
+    * MIN_HEALTH_FACTOR
+    * @param debtToCover The amount of DSC you to burn to improve the user's health factor
+    * @notice You can partially liquidate a user.
+    * @notice You will get a liquidation bonus for taking the user's funds.
+    * @notice This function working assumes the protocol is overcollateralized at roughtly 200%
+    * @notice A known bug would be if the protocol were 100% or less collateralized, then we wouldn't be able
+    * to incentivze the liquidators
+    * For ewxample, if the price of the collateral plummeted before anyone could be liquidated
+     */
+    function liquidate(address collateral, address user, uint256 debtToCover) moreThanZero(debtToCover) nonReentrant external {
+        uint256 startingUserHealthFactor = _healthFactor(user);
+        if (startingUserHealthFactor >= MIN_HEALTH_FACTOR) {
+            revert DSCEngine__HealthFactorOk();
+        }
+        
     }
+
+    
 
     function getHealthFactor() external view {
 
