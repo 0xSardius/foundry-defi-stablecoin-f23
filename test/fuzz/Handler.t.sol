@@ -29,6 +29,13 @@ contract Handler is Test {
 
     }
 
+    function mintDsc(uint256 amount) public {
+        amount = bound(amount, 1, MAX_DEPOSIT_SIZE);
+        vm.startPrank(msg.sender);
+        dsce.mintDsc(amount);
+        vm.stopPrank();
+    }
+
     function depositCollateral(uint256 collateralSeed, uint256 amountCollateral) public {
         ERC20Mock collateral = _getCollateralFromSeed(collateralSeed);
         amountCollateral = bound(amountCollateral, 1, MAX_DEPOSIT_SIZE);
@@ -43,7 +50,12 @@ contract Handler is Test {
     function redeemCollateral(uint256 collateralSeed, uint256 amountCollateral) public {
         ERC20Mock collateral = _getCollateralFromSeed(collateralSeed);
         uint256 maxCollateralToRedeem = dscEngine.getCollateralBalanceOfUser(address(collateral), msg.sender);
+
         amountCollateral = bound(amountCollateral, 1, maxCollateralToRedeem);
+        if (amountCollateral == 0) {
+            return;
+        }
+        dsce.redeemCollateral(address(collateral), amountCollateral);
     }
 
     // Helper Functions
