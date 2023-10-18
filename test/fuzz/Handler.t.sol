@@ -77,6 +77,13 @@ contract Handler is Test {
         dsce.redeemCollateral(address(collateral), amountCollateral);
     }
 
+    // This breaks our invariant test suite
+    // function updateCollateralPrice(uint96 newPrice) public {
+    //     int256 newPrice = int256(uint256(newPrice));
+    //     ethUsdPriceFeed.updateAnswer(newPriceInt);
+
+    // }
+
     // Helper Functions
     function _getCollateralFromSeed(uint256 collateralSeed) private view returns(ERC20Mock) {
         if (collateralSeed % 2 == 0) {
