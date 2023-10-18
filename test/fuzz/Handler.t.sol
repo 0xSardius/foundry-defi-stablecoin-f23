@@ -8,6 +8,7 @@ import {Test} from "forge-std/Test.sol";
 import {DSCEngine} from "../../src/DSCEngine.sol";
 import {DecentralizedStablecoin} from "../../src/DecentralizedStablecoin.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/ERC20Mock.sol";
+import {MockV3Aggregator} from "@chainlink/contracts/src/v0.8/tests/MockV3Aggregator.sol";
 
 contract Handler is Test {
     DSCEngine dsce;
@@ -15,6 +16,10 @@ contract Handler is Test {
 
     ERC20Mock weth;
     ERC20Mock wbtc;
+
+    uint256 public timesMintIsCalled;
+    address[] public usersWithCollateralDeposited;
+    MockV3Aggregator public ethUsdPriceFeed;
 
     uint256 MAX_DEPOSIT_SIZE = type(uint96).max;
 
@@ -27,13 +32,26 @@ contract Handler is Test {
         weth = ERC20Mock(collateralTokens[0]);
         wbtc = ERC20Mock(collateralTokens[1]);
 
+        dsce.getCollateralTokenPriceFeed(weth);
     }
 
-    function mintDsc(uint256 amount) public {
-        amount = bound(amount, 1, MAX_DEPOSIT_SIZE);
+    function mintDsc(uint256 amount, uint256 addresSeed) public {
+        if (usersWithCollateralDeposited.length == 0) {
+            return;
+        }
+        (uint256 totalDscMinted, uint256 collateralValueInUsd) = dsce.getAccountInformation(msg.sender);
+        int256 maxDscToMint = (collateralValueInUsd / 2) - totalDscMinted;
+        if (maxDscToMint < 0) {
+            return;
+        }
+        amount = bound(amount, 0, uint256(maxDscToMint));
+        if (amount == 0) {
+            return;
+        }
         vm.startPrank(msg.sender);
         dsce.mintDsc(amount);
         vm.stopPrank();
+        timesMintIsCalled++;
     }
 
     function depositCollateral(uint256 collateralSeed, uint256 amountCollateral) public {
@@ -45,6 +63,7 @@ contract Handler is Test {
         collateral.approve(address(dsce), amountCollateral);
         dsce.depositCollateral(address(collateral), amountCollateral);
         vm.stopPrank();
+        usersWithCollateralDeposited.push(msg.sender);
     }
 
     function redeemCollateral(uint256 collateralSeed, uint256 amountCollateral) public {
